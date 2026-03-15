@@ -367,9 +367,8 @@ export default function App() {
     img.src = url;
   };
 
-  // --- NUEVA LÓGICA DE GRÁFICO MINIMALISTA Y ENGLOBADO ---
+  // --- GRÁFICO ---
   const renderGraph = () => {
-    // 1. Ordenar y crear árbol de situaciones
     const sortedSituations = [...situations].sort((a, b) => 
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
     );
@@ -377,16 +376,13 @@ export default function App() {
     const nodeMap = {};
     const roots = [];
 
-    // Inicializar nodos
     sortedSituations.forEach(sit => {
       nodeMap[sit.id] = { ...sit, children: [], isLeaf: true };
     });
 
-    // Enlazar jerarquía
     sortedSituations.forEach(sit => {
       const parts = sit.id.split('.');
       let parentId = null;
-      // Buscar el padre más cercano existente
       for (let i = parts.length - 1; i > 0; i--) {
         const possibleParent = parts.slice(0, i).join('.');
         if (nodeMap[possibleParent]) {
@@ -403,32 +399,30 @@ export default function App() {
       }
     });
 
-    // 2. Calcular posiciones Y (Layout Pre-orden)
     let currentY = 20;
-    const rightEdge = 340; // Donde terminan por la derecha todos los nodos de situación
+    const rightEdge = 340; 
 
     const traverseLayout = (node, depth) => {
       node.depth = depth;
-      node.x = 20 + depth * 20; // Indentación
+      node.x = 20 + depth * 20; 
       node.w = rightEdge - node.x;
 
       if (node.children.length === 0) {
         node.isLeaf = true;
         node.y = currentY;
-        node.h = 32; // Altura minimalista
-        currentY += node.h + 8; // Gap inferior
+        node.h = 32; 
+        currentY += node.h + 8; 
       } else {
         node.y = currentY;
-        currentY += 24; // Espacio superior para el nombre del padre
+        currentY += 24; 
         node.children.forEach(child => traverseLayout(child, depth + 1));
-        node.h = currentY - node.y + 4; // Padding inferior del grupo
-        currentY += 12; // Gap tras el grupo padre
+        node.h = currentY - node.y + 4; 
+        currentY += 12; 
       }
     };
 
     roots.forEach(root => traverseLayout(root, 0));
 
-    // 3. Calcular posiciones para Casos de Prueba (Derecha)
     const sortedTestCases = [...testCases].sort((a, b) => 
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' })
     );
@@ -443,15 +437,14 @@ export default function App() {
       tcY += 32 + 12;
     });
 
-    // Dimensiones finales del SVG
     const svgHeight = Math.max(currentY, tcY) + 40;
     const svgWidth = 680;
 
     const getSituationStatusColor = (sitId) => {
       const linkedTCs = testCases.filter(tc => tc.situations.includes(sitId));
-      if (linkedTCs.length === 0) return '#94a3b8'; // Gris si no tuviera
+      if (linkedTCs.length === 0) return '#94a3b8'; 
       const allFail = linkedTCs.every(tc => tc.fails === true);
-      return allFail ? '#ef4444' : '#10b981'; // Rojo o Verde
+      return allFail ? '#ef4444' : '#10b981'; 
     };
 
     const renderSVGNode = (node) => {
@@ -466,10 +459,8 @@ export default function App() {
       } else {
         return (
           <g key={node.id}>
-            {/* Caja de Padre englobadora */}
             <rect x={node.x} y={node.y} width={node.w} height={node.h} rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 4" />
             <text x={node.x + 8} y={node.y + 16} fontSize="11" fontWeight="bold" fill="#64748b">{node.id}</text>
-            {/* Dibujar hijos */}
             {node.children.map(child => renderSVGNode(child))}
           </g>
         );
@@ -495,7 +486,6 @@ export default function App() {
             </marker>
           </defs>
 
-          {/* Dibuja las líneas/flechas al fondo */}
           {sortedTestCases.map((tc) => {
             const tcl = tcLayout[tc.id];
             const startX = tcl.x;
@@ -532,10 +522,8 @@ export default function App() {
             });
           })}
 
-          {/* Dibuja Situaciones (Izquierda) */}
           {roots.map(root => renderSVGNode(root))}
 
-          {/* Dibuja Casos de Prueba (Derecha) */}
           {sortedTestCases.map((tc) => {
             const tcl = tcLayout[tc.id];
             const color = tc.fails ? '#ef4444' : '#10b981';
@@ -552,9 +540,16 @@ export default function App() {
     );
   };
 
+  // Variables para comprobar el estado de selección en el Caso de Prueba
+  const hasInvalidSelected = tcLinkedSits.some(id => situations.find(s => s.id === id)?.invalid);
+  const hasValidSelected = tcLinkedSits.some(id => {
+    const s = situations.find(s => s.id === id);
+    return s && !s.invalid;
+  });
+
   return (
     <div className="min-h-screen bg-white md:bg-slate-50 text-slate-800 font-sans p-4 md:p-8 print:bg-white print:p-0">
-      <div className="max-w-[1400px] mx-auto space-y-6 w-full">
+      <div className="max-w-350 mx-auto space-y-6 w-full">
         
         {/* Header */}
         <header className="mb-8 flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6 print:hidden">
@@ -594,7 +589,7 @@ export default function App() {
         {/* Global Warning Banner */}
         {uncoveredSituations.length > 0 && (
           <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex items-start gap-3 print:hidden">
-            <ShieldAlert className="text-amber-500 mt-0.5 flex-shrink-0" size={24} />
+            <ShieldAlert className="text-amber-500 mt-0.5 shrink-0" size={24} />
             <div>
               <h3 className="text-amber-800 font-bold">¡Atención! Situaciones de último nivel sin cubrir</h3>
               <p className="text-amber-700 text-sm mt-1">
@@ -628,7 +623,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* ATENCIÓN: Se ha eliminado el 'print:hidden' del contenedor principal */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
           
           {/* TAB 1: Situaciones */}
@@ -692,11 +686,11 @@ export default function App() {
                       <input type="checkbox" checked={sitInvalid} onChange={e => setSitInvalid(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
                       <span className="font-medium text-sm text-slate-700">¿Inválida?</span>
                     </label>
-                    <button type="submit" className="flex-shrink-0 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors h-full shadow-sm">
+                    <button type="submit" className="shrink-0 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors h-full shadow-sm">
                       {editingSitOriginalId ? <><Pencil size={20} className="mr-2"/> Actualizar</> : <><Plus size={20} className="mr-2"/> Añadir</>}
                     </button>
                     {editingSitOriginalId && (
-                      <button type="button" onClick={handleCancelSitEdit} className="flex-shrink-0 flex items-center justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2 rounded-lg font-medium transition-colors h-full shadow-sm">
+                      <button type="button" onClick={handleCancelSitEdit} className="shrink-0 flex items-center justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2 rounded-lg font-medium transition-colors h-full shadow-sm">
                         Cancelar
                       </button>
                     )}
@@ -732,7 +726,7 @@ export default function App() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-800">{sit.id}</span>
-                              {sit.invalid && <span className="flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold" title="Situación Inválida">i</span>}
+                              {sit.invalid && <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-200 font-bold tracking-wider" title="Situación Inválida">Inválido</span>}
                               {isLeaf ? (
                                 <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">Último Nivel</span>
                               ) : (
@@ -784,28 +778,89 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Contenedor para mostrar las situaciones que ya se han seleccionado */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Situaciones Seleccionadas</label>
+                  {tcLinkedSits.length === 0 ? (
+                    <p className="text-sm text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200 shadow-inner">No has seleccionado ninguna situación.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 shadow-inner">
+                      {tcLinkedSits.map(sitId => {
+                        const sit = situations.find(s => s.id === sitId);
+                        const isInvalid = sit?.invalid;
+                        
+                        return (
+                          <div key={sitId} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium shadow-sm ${isInvalid ? 'bg-red-100 text-red-800 border-red-300' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}>
+                            <span>{sitId} {sit ? `- ${sit.description}` : ''}</span>
+                            <button type="button" onClick={() => toggleTestCaseSituation(sitId)} className={`transition-colors ${isInvalid ? 'hover:text-red-900' : 'hover:text-emerald-900'}`}>
+                              <XCircle size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Asociar a Situaciones de Último Nivel</label>
                   {situations.length === 0 ? (
                     <p className="text-sm text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">Crea situaciones primero en la pestaña 1.</p>
                   ) : (
-                    <div className="max-h-72 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-2 bg-slate-50 shadow-inner">
+                    <div className="max-h-96 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-2 bg-slate-50 shadow-inner">
                       {situations.map(sit => {
                         if (!isVisible(sit.id)) return null;
+                        
                         const isLeaf = leafSituations.some(l => l.id === sit.id);
+                        
+                        // Ocultamos la situación si ya la tenemos seleccionada
+                        if (tcLinkedSits.includes(sit.id)) return null;
+
+                        // Ocultamos la situación si pertenece a OTRO caso de prueba 
+                        const isAssignedToOther = testCases.some(tc => tc.situations.includes(sit.id) && tc.id !== editingTcOriginalId);
+                        if (isLeaf && isAssignedToOther) return null;
+
                         const indentCount = getExistingParentIds(sit.id).length;
-                        let isDisabled = !isLeaf || (sit.invalid && testCases.some(tc => tc.situations.includes(sit.id) && tc.id !== editingTcOriginalId));
+                        
+                        // Desactivación lógica según si se han marcado válidas o inválidas
+                        let isDisabled = !isLeaf;
+                        if (isLeaf) {
+                          if (hasInvalidSelected) {
+                            isDisabled = true;
+                          } else if (hasValidSelected && sit.invalid) {
+                            isDisabled = true;
+                          }
+                        }
+
+                        // Clases dinámicas para estilar el contenedor
+                        let containerClasses = "flex items-center gap-2 p-2 rounded transition-colors ";
+                        if (isDisabled) {
+                          containerClasses += sit.invalid 
+                            ? "opacity-60 border border-red-200 bg-red-50/50" 
+                            : "opacity-60 border border-transparent";
+                        } else {
+                          containerClasses += sit.invalid 
+                            ? "bg-white border border-red-400 hover:bg-red-50 shadow-sm" 
+                            : "hover:bg-white bg-slate-50/50 border border-transparent hover:border-slate-200 shadow-sm";
+                        }
                         
                         return (
-                          <div key={sit.id} style={{ marginLeft: `${indentCount * 1.5}rem` }} className={`flex items-center gap-2 p-2 rounded transition-colors ${!isDisabled ? 'hover:bg-white bg-slate-50/50 border border-transparent hover:border-slate-200 shadow-sm' : 'opacity-60'}`}>
+                          <div key={sit.id} style={{ marginLeft: `${indentCount * 1.5}rem` }} className={containerClasses}>
                             {!isLeaf ? (
                               <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExpand(sit.id); }} className="p-0.5 hover:bg-slate-200 rounded text-slate-500 transition-colors shrink-0 z-10 relative">
                                 {expandedNodes.has(sit.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                               </button>
                             ) : <div className="w-5 shrink-0" />}
                             <label className={`flex items-center gap-2 w-full m-0 ${!isDisabled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                              <input type="checkbox" disabled={isDisabled} checked={tcLinkedSits.includes(sit.id)} onChange={() => toggleTestCaseSituation(sit.id)} className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 disabled:opacity-50" />
+                              <input 
+                                type="checkbox" 
+                                disabled={isDisabled} 
+                                checked={tcLinkedSits.includes(sit.id)} 
+                                onChange={() => toggleTestCaseSituation(sit.id)} 
+                                className={`w-4 h-4 rounded focus:ring-emerald-500 disabled:opacity-50 ${sit.invalid ? 'text-red-600 border-red-300' : 'text-emerald-600 border-slate-300'}`} 
+                              />
                               <span className="text-sm font-bold text-slate-700">{sit.id}</span>
+                              {sit.invalid && <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-bold tracking-wide">Inválida</span>}
                               <span className="text-sm text-slate-600 truncate">- {sit.description}</span>
                             </label>
                           </div>
@@ -830,7 +885,7 @@ export default function App() {
             
             <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 font-semibold text-slate-700">Listado de Casos de Prueba</div>
-               <div className="p-4 space-y-3 h-[600px] overflow-y-auto">
+               <div className="p-4 space-y-3 h-150 overflow-y-auto">
                  {testCases.map(tc => (
                    <div key={tc.id} className="p-4 rounded-lg border flex justify-between items-start transition-all bg-white hover:border-emerald-300 border-slate-200">
                      <div className="w-full pr-4">
@@ -879,7 +934,7 @@ export default function App() {
               
               {renderGraph()}
               
-              <div className="text-center mt-6 text-sm text-slate-500 print:hidden bg-white p-4 rounded-xl border border-slate-200 shadow-sm inline-block mx-auto flex items-center justify-center">
+              <div className="text-center mt-6 text-sm text-slate-500 print:hidden bg-white p-4 rounded-xl border border-slate-200 shadow-sm inline-block mx-auto items-center justify-center">
                 <span className="inline-flex items-center gap-1.5 text-red-600 font-medium mr-6"><XCircle size={16}/> Rojo: Casos fallidos</span>
                 <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium mr-6"><CheckCircle2 size={16}/> Verde: Casos exitosos</span>
                 <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium"><div className="w-3 h-3 border border-slate-400 border-dashed rounded-sm bg-slate-100"></div> Gris (Rayado): Situación Padre</span>
