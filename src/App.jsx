@@ -547,6 +547,12 @@ export default function App() {
     return s && !s.invalid;
   });
 
+  // Calculamos los padres de las situaciones que ya están seleccionadas
+  const getImmediateParentId = (id) => id.includes('.') ? id.substring(0, id.lastIndexOf('.')) : null;
+  const selectedParentIds = new Set(
+    tcLinkedSits.map(getImmediateParentId).filter(p => p !== null)
+  );
+
   return (
     <div className="min-h-screen bg-white md:bg-slate-50 text-slate-800 font-sans p-4 md:p-8 print:bg-white print:p-0">
       <div className="max-w-350 mx-auto space-y-6 w-full">
@@ -816,23 +822,41 @@ export default function App() {
                         // Ocultamos la situación si ya la tenemos seleccionada
                         if (tcLinkedSits.includes(sit.id)) return null;
 
-                        // Ocultamos la situación si pertenece a OTRO caso de prueba 
+                        // Ocultamos la situación si pertenece a OTRO caso de prueba (solo aplica para hojas)
                         const isAssignedToOther = testCases.some(tc => tc.situations.includes(sit.id) && tc.id !== editingTcOriginalId);
                         if (isLeaf && isAssignedToOther) return null;
 
                         const indentCount = getExistingParentIds(sit.id).length;
                         
-                        // Desactivación lógica según si se han marcado válidas o inválidas
-                        let isDisabled = !isLeaf;
-                        if (isLeaf) {
-                          if (hasInvalidSelected) {
-                            isDisabled = true;
-                          } else if (hasValidSelected && sit.invalid) {
-                            isDisabled = true;
-                          }
+                        // Si la situación es PADRE, la mostramos como encabezado, sin checkbox ni difuminado
+                        if (!isLeaf) {
+                          return (
+                            <div key={sit.id} style={{ marginLeft: `${indentCount * 1.5}rem` }} className="flex items-center gap-2 p-2 rounded transition-colors border border-transparent hover:bg-slate-100">
+                              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExpand(sit.id); }} className="p-0.5 hover:bg-slate-200 rounded text-slate-500 transition-colors shrink-0 z-10 relative">
+                                {expandedNodes.has(sit.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                              <div className="flex items-center gap-2 w-full m-0 cursor-default">
+                                <span className="text-sm font-bold text-slate-800">{sit.id}</span>
+                                {sit.invalid && <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-bold tracking-wide">Inválida</span>}
+                                <span className="text-sm text-slate-600 truncate">- {sit.description}</span>
+                              </div>
+                            </div>
+                          );
                         }
 
-                        // Clases dinámicas para estilar el contenedor
+                        // Si es HIJA (isLeaf), procesamos la lógica normal de si se puede seleccionar o no
+                        const sitParentId = getImmediateParentId(sit.id);
+                        const sharesParentWithSelected = sitParentId && selectedParentIds.has(sitParentId);
+
+                        let isDisabled = false;
+                        if (hasInvalidSelected) {
+                          isDisabled = true;
+                        } else if (hasValidSelected && sit.invalid) {
+                          isDisabled = true;
+                        } else if (sharesParentWithSelected) {
+                          isDisabled = true; 
+                        }
+
                         let containerClasses = "flex items-center gap-2 p-2 rounded transition-colors ";
                         if (isDisabled) {
                           containerClasses += sit.invalid 
@@ -844,14 +868,14 @@ export default function App() {
                             : "hover:bg-white bg-slate-50/50 border border-transparent hover:border-slate-200 shadow-sm";
                         }
                         
+                        const titleMsg = sharesParentWithSelected 
+                          ? "Ya has seleccionado otra situación de este mismo padre" 
+                          : "";
+
                         return (
                           <div key={sit.id} style={{ marginLeft: `${indentCount * 1.5}rem` }} className={containerClasses}>
-                            {!isLeaf ? (
-                              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExpand(sit.id); }} className="p-0.5 hover:bg-slate-200 rounded text-slate-500 transition-colors shrink-0 z-10 relative">
-                                {expandedNodes.has(sit.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                              </button>
-                            ) : <div className="w-5 shrink-0" />}
-                            <label className={`flex items-center gap-2 w-full m-0 ${!isDisabled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                            <div className="w-5 shrink-0" />
+                            <label className={`flex items-center gap-2 w-full m-0 ${!isDisabled ? 'cursor-pointer' : 'cursor-not-allowed'}`} title={titleMsg}>
                               <input 
                                 type="checkbox" 
                                 disabled={isDisabled} 
